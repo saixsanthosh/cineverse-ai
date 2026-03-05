@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - CineVerse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-animation">
+        <div class="gradient-bg"></div>
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+        <canvas id="particlesCanvas"></canvas>
+    </div>
+    
+    <!-- Glow Effect Around Card -->
+    <div class="card-glow"></div>
+
+    <div class="login-wrapper">
+        <div class="login-card">
+            <!-- Logo Section -->
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <svg width="50" height="50" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19.82 2H4.18C2.97602 2 2 2.97602 2 4.18V19.82C2 21.024 2.97602 22 4.18 22H19.82C21.024 22 22 21.024 22 19.82V4.18C22 2.97602 21.024 2 19.82 2Z" fill="url(#gradient1)"/>
+                        <path d="M7 8L12 11L7 14V8Z" fill="white"/>
+                        <path d="M13 8L18 11L13 14V8Z" fill="white"/>
+                        <defs>
+                            <linearGradient id="gradient1" x1="2" y1="2" x2="22" y2="22">
+                                <stop offset="0%" stop-color="#8B5CF6"/>
+                                <stop offset="100%" stop-color="#EC4899"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h1 class="logo-text">CineVerse</h1>
+                <p class="logo-tagline">Your Universe of Movies</p>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form active">
+                <h2 class="form-title">Welcome Back</h2>
+                <p class="form-subtitle">Sign in to continue your journey</p>
+
+                <div class="input-group">
+                    <label for="loginIdentifier">Email or Username</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <input type="text" id="loginIdentifier" placeholder="Enter your email or username" required>
+                    </div>
+                    <span class="error-msg" id="loginIdentifierError"></span>
+                </div>
+
+                <div class="input-group">
+                    <label for="loginPassword">Password</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M19 11H5C3.89543 11 3 11.8954 3 13V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V13C21 11.8954 20.1046 11 19 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M7 11V7C7 5.67392 7.52678 4.40215 8.46447 3.46447C9.40215 2.52678 10.6739 2 12 2C13.3261 2 14.5979 2.52678 15.5355 3.46447C16.4732 4.40215 17 5.67392 17 7V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <input type="password" id="loginPassword" placeholder="Enter your password" required>
+                    </div>
+                    <span class="error-msg" id="loginPasswordError"></span>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    <span>Sign In</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <div class="divider">
+                    <span>or continue with</span>
+                </div>
+
+                <button type="button" class="btn-google" id="googleLogin">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    <span>Sign in with Google</span>
+                </button>
+
+                <p class="form-switch">
+                    Don't have an account? <a href="#" id="showRegister">Create Account</a>
+                </p>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" class="auth-form">
+                <h2 class="form-title">Create Account</h2>
+                <p class="form-subtitle">Join CineVerse today</p>
+
+                <div class="input-group">
+                    <label for="registerUsername">Username</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <input type="text" id="registerUsername" placeholder="Choose a username" required minlength="3">
+                    </div>
+                    <span class="error-msg" id="registerUsernameError"></span>
+                </div>
+
+                <div class="input-group">
+                    <label for="registerEmail">Email Address</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M22 6L12 13L2 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <input type="email" id="registerEmail" placeholder="Enter your email" required>
+                    </div>
+                    <span class="error-msg" id="registerEmailError"></span>
+                </div>
+
+                <div class="input-group">
+                    <label for="registerPassword">Password</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M19 11H5C3.89543 11 3 11.8954 3 13V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V13C21 11.8954 20.1046 11 19 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M7 11V7C7 5.67392 7.52678 4.40215 8.46447 3.46447C9.40215 2.52678 10.6739 2 12 2C13.3261 2 14.5979 2.52678 15.5355 3.46447C16.4732 4.40215 17 5.67392 17 7V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <input type="password" id="registerPassword" placeholder="Create a password (min 8 characters)" required minlength="8">
+                    </div>
+                    <span class="error-msg" id="registerPasswordError"></span>
+                </div>
+
+                <div class="input-group">
+                    <label for="registerConfirmPassword">Confirm Password</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M9 11L12 14L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M21 12V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <input type="password" id="registerConfirmPassword" placeholder="Confirm your password" required>
+                    </div>
+                    <span class="error-msg" id="registerConfirmPasswordError"></span>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    <span>Create Account</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <div class="divider">
+                    <span>or sign up with</span>
+                </div>
+
+                <button type="button" class="btn-google" id="googleSignup">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    <span>Sign up with Google</span>
+                </button>
+
+                <p class="form-switch">
+                    Already have an account? <a href="#" id="showLogin">Sign In</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Preferences Modal -->
+    <div id="preferencesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Personalize Your Experience</h2>
+                <p>Select your favorite languages and genres</p>
+            </div>
+
+            <form id="preferencesForm">
+                <div class="pref-section">
+                    <h3>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                            <path d="M2 12H22M12 2C14.5 4.5 16 8 16 12C16 16 14.5 19.5 12 22M12 2C9.5 4.5 8 8 8 12C8 16 9.5 19.5 12 22" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Languages
+                    </h3>
+                    <div class="options-grid">
+                        <label class="option-card"><input type="checkbox" name="language" value="en"><span>🇬🇧 English</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="hi"><span>🇮🇳 Hindi</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="ta"><span>🇮🇳 Tamil</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="te"><span>🇮🇳 Telugu</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="ml"><span>🇮🇳 Malayalam</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="kn"><span>🇮🇳 Kannada</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="bn"><span>🇮🇳 Bengali</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="mr"><span>🇮🇳 Marathi</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="pa"><span>🇮🇳 Punjabi</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="gu"><span>🇮🇳 Gujarati</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="es"><span>🇪🇸 Spanish</span></label>
+                        <label class="option-card"><input type="checkbox" name="language" value="fr"><span>🇫🇷 French</span></label>
+                    </div>
+                </div>
+
+                <div class="pref-section">
+                    <h3>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Genres
+                    </h3>
+                    <div class="options-grid">
+                        <label class="option-card"><input type="checkbox" name="genre" value="28"><span>💥 Action</span></label>
+                        <label class="option-card"><input type="checkbox" name="genre" value="35"><span>😂 Comedy</span></label>
+                        <label class="option-card"><input type="checkbox" name="genre" value="10749"><span>💕 Romance</span></label>
+                        <label class="option-card"><input type="checkbox" name="genre" value="53"><span>😱 Thriller</span></label>
+                        <label class="option-card"><input type="checkbox" name="genre" value="27"><span>👻 Horror</span></label>
+                        <label class="option-card"><input type="checkbox" name="genre" value="878"><span>🚀 Sci-Fi</span></label>
+                        <label class="option-card"><input type="checkbox" name="genre" value="9648"><span>🔍 Mystery</span></label>
+                        <label class="option-card"><input type="checkbox" name="genre" value="18"><span>🎭 Drama</span></label>
+                        <label class="option-card"><input type="checkbox" name="genre" value="16"><span>🎨 Animation</span></label>
+                        <label class="option-card"><input type="checkbox" name="genre" value="12"><span>🗺️ Adventure</span></label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary btn-large">
+                    <span>Continue to CineVerse</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M9 11L12 14L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="toast-message"></span>
+    </div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Details - CineVerse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/home.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-left">
+                <div class="logo"><span>CineVerse</span></div>
+                <ul class="nav-menu">
+                    <li><a href="home.html" class="active">Home</a></li>
+                    <li><a href="watchlist.html">Watchlist</a></li>
+                </ul>
+            </div>
+            <div class="nav-right">
+                <a href="home.html" class="btn-hero btn-info" style="text-decoration:none;">Back</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero" style="height:auto;min-height:50vh;padding:120px 40px 40px;">
+        <div class="hero-content" style="max-width:1200px;width:100%;display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:24px;align-items:start;">
+            <img id="moviePoster" alt="Movie Poster" class="movie-poster" style="width:100%;max-width:320px;border-radius:12px;">
+            <div>
+                <h1 class="hero-title" id="movieTitle" style="font-size:42px;"></h1>
+                <p class="hero-subtitle" id="movieMeta"></p>
+                <p id="movieDescription" style="color:#cbd5e1;line-height:1.8;"></p>
+                <p id="movieDirector" style="margin-top:12px;color:#cbd5e1;"></p>
+                <p id="movieCast" style="margin-top:8px;color:#cbd5e1;"></p>
+                <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
+                    <button class="btn-hero btn-play" id="watchTrailerBtn">Watch Trailer</button>
+                    <button class="btn-hero btn-info" id="watchlistToggleBtn">Add to Watchlist</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="movies-section">
+        <div class="section-header"><h2>Your Review</h2></div>
+        <div style="background:rgba(15, 23, 42, 0.6);padding:16px;border-radius:12px;">
+            <label for="reviewRating">Rating (1-10)</label>
+            <input id="reviewRating" type="number" min="1" max="10" style="width:100%;margin:8px 0 12px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(15,23,42,0.9);color:#fff;">
+            <label for="reviewText">Review</label>
+            <textarea id="reviewText" rows="4" style="width:100%;margin:8px 0 12px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(15,23,42,0.9);color:#fff;"></textarea>
+            <button class="btn-hero btn-play" id="saveReviewBtn">Save Review</button>
+            <p id="reviewStatus" style="margin-top:8px;color:#cbd5e1;"></p>
+        </div>
+    </section>
+
+    <section class="movies-section">
+        <div class="section-header"><h2>User Reviews</h2></div>
+        <div id="reviewsContainer" style="display:grid;gap:12px;"></div>
+    </section>
+
+    <section class="movies-section">
+        <div class="section-header"><h2>Recommended Movies</h2></div>
+        <div class="movies-grid" id="recommendationsGrid"></div>
+    </section>
+
+    <div id="trailerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:2000;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:#0f1729;border-radius:12px;max-width:900px;width:100%;padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h3>Trailer</h3>
+                <button id="closeTrailerBtn" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.3);padding:6px 10px;border-radius:8px;cursor:pointer;">Close</button>
+            </div>
+            <iframe id="trailerFrame" width="100%" height="480" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/movie-service.js"></script>
+    <script src="js/movie-details.js"></script>
+</body>
+</html>
