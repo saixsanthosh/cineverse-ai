@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const preferencesForm = document.getElementById('preferencesForm');
     const googleLoginBtn = document.getElementById('googleLogin');
     const googleSignupBtn = document.getElementById('googleSignup');
+    const guestLoginBtn = document.getElementById('guestLogin');
 
     let pendingUser = null;
 
@@ -42,6 +43,20 @@ document.addEventListener('DOMContentLoaded', () => {
     googleSignupBtn.addEventListener('click', (e) => {
         e.preventDefault();
         showToast('Google Sign-Up coming soon!', 'error');
+    });
+
+    guestLoginBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const result = authService.loginAsGuest();
+        if (!result.success) {
+            showToast('Guest login failed', 'error');
+            return;
+        }
+
+        showToast('Entering as guest...', 'success');
+        setTimeout(() => {
+            window.location.href = 'home.html';
+        }, 700);
     });
 
     // Handle login form submission

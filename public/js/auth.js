@@ -84,10 +84,32 @@ class AuthenticationService {
         return { success: true };
     }
 
+    loginAsGuest() {
+        const guestUser = this.createGuestUser();
+        this.createSession(guestUser);
+        return { success: true, user: guestUser };
+    }
+
+    createGuestUser() {
+        return {
+            id: 'guest',
+            username: 'Guest',
+            email: 'guest@cinematch.local',
+            isGuest: true,
+            createdAt: Date.now(),
+            preferences: {
+                languages: [],
+                genres: []
+            }
+        };
+    }
+
     createSession(user) {
         const session = {
             userId: user.id,
-            loginTime: Date.now()
+            loginTime: Date.now(),
+            isGuest: !!user.isGuest,
+            guestUser: user.isGuest ? user : null
         };
         sessionStorage.setItem('currentSession', JSON.stringify(session));
     }
@@ -102,6 +124,9 @@ class AuthenticationService {
 
         try {
             const session = JSON.parse(sessionData);
+            if (session.isGuest && session.guestUser) {
+                return session.guestUser;
+            }
             return this.storage.getUserById(session.userId);
         } catch (e) {
             console.error('Error getting current user:', e);
