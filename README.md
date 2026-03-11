@@ -1,56 +1,75 @@
-# CineMatch
+# CineVerse AI
 
-CineMatch is a movie recommendation app with a static frontend and a FastAPI backend that powers search, genre picks, and content-based recommendations.
+CineVerse AI is a Netflix-style movie discovery app with a static frontend and a FastAPI backend for movie loading, search, trailers, discovery rows, recommendations, and watchlist flows.
 
 ## Stack
 
+- Python
 - FastAPI
 - Pandas
 - scikit-learn
-- TMDB API for poster lookups when `TMDB_API_KEY` or `TMDB_BEARER_TOKEN` is configured
-- Vercel for deployment
+- Redis with in-memory fallback
+- TMDB API for metadata enrichment
+- Uvicorn
+- Vercel
 
-## Project structure
+## Backend layout
 
 ```text
 backend/
 ├── main.py
-├── recommendation.py
+├── recommendation_engine.py
+├── movie_service.py
 ├── dataset/
 │   └── movies.csv
+├── cache/
+│   └── __init__.py
 ├── utils/
+│   ├── data_cleaning.py
 │   └── preprocessing.py
 └── requirements.txt
-public/
-├── index.html
-├── login.html
-├── home.html
-├── movie-details.html
-├── watchlist.html
-├── css/
-└── js/
-app.py
-requirements.txt
 ```
 
-## Local setup
+## Environment variables
 
-1. Install Python 3.11 or newer.
+- `TMDB_API_KEY` or `TMDB_BEARER_TOKEN`
+- `REDIS_URL` for persistent cache and user-state storage
+
+If TMDB is not configured, the backend still works with the local dataset and placeholder assets.
+
+## Local run
+
+1. Install Python 3.11+.
 2. Install dependencies with `pip install -r requirements.txt`.
-3. Start the API with `uvicorn app:app --reload`.
-4. Open `http://127.0.0.1:8000/docs` for API docs or deploy to Vercel.
+3. Run `uvicorn app:app --reload`.
+4. Open `http://127.0.0.1:8000/docs`.
 
-## API routes
+## Main endpoints
 
-- `GET /api/movies`
-- `GET /api/movies/{movie_id}`
-- `GET /api/search?title=Inception`
-- `GET /api/recommend?movie=Inception`
-- `GET /api/genre/Sci-Fi`
-- `GET /api/health`
+- `GET /api/movies?page=1&page_size=24`
+- `GET /api/movie/{movie_id}`
+- `GET /api/search?title=...`
+- `GET /api/search/suggestions?query=...`
+- `GET /api/recommend/{movie_id}`
+- `GET /api/recommend?movie=...`
+- `GET /api/trending?window=day|week`
+- `GET /api/top-rated`
+- `GET /api/new-releases`
+- `GET /api/popular`
+- `GET /api/genre/{genre_name}`
+- `GET /api/discovery`
+- `GET /api/random`
+- `GET /api/tonight`
+- `GET /api/explore/actor/{actor_name}`
+- `GET /api/explore/director/{director_name}`
+- `GET /api/decade/{decade}`
+- `GET /api/watchlist`
+- `POST /api/watchlist/add`
+- `DELETE /api/watchlist/remove`
 
-## Vercel deployment
+## Notes
 
-1. Import the repository into Vercel.
-2. Add `TMDB_API_KEY` or `TMDB_BEARER_TOKEN` if you want live poster refresh from TMDB.
-3. Deploy. Vercel serves files from `public/` and loads the FastAPI app from `app.py`.
+- Movie metadata is normalized into a common model with poster, backdrop, trailer, runtime, rating, cast, director, and popularity score.
+- Missing metadata is enriched from TMDB when credentials are available.
+- Recommendation scoring combines TF-IDF similarity, genre overlap, actor overlap, director overlap, clustering, and user taste signals.
+- The homepage JS now supports backend-driven discovery rows and paginated browse loading.

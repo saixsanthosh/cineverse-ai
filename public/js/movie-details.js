@@ -34,8 +34,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     try {
+        const movie = await MovieService.getMovieById(movieId, currentUser);
         const movies = await MovieService.loadMovies();
-        const movie = movies.find(item => item.id === movieId);
 
         if (!movie) {
             window.location.href = 'home.html';
@@ -65,6 +65,10 @@ function renderMovie(movie, refs) {
     refs.title.textContent = movie.title;
     refs.poster.src = movie.poster;
     refs.poster.alt = movie.title;
+    document.querySelector('.hero')?.style.setProperty(
+        'background',
+        `linear-gradient(rgba(2, 6, 23, 0.84), rgba(2, 6, 23, 0.96)), url('${movie.backdrop || movie.poster}') center/cover no-repeat`
+    );
 
     const runtime = movie.runtime_min ? `${movie.runtime_min} min` : 'Runtime NA';
     const platforms = Array.isArray(movie.platforms) ? movie.platforms.join(', ') : 'NA';
@@ -272,7 +276,7 @@ function renderReviews(movie, refs, user, sortMode = 'newest') {
 }
 
 async function renderRecommendations(movie, refs, user) {
-    const recommendations = await MovieService.getSimilarMovies(movie.title, 6);
+    const recommendations = await MovieService.getSimilarMovies(movie.id, 6, user);
     if (!recommendations.length) {
         refs.recommendationsGrid.innerHTML = '<div style="color:#cbd5e1;grid-column:1/-1;">No recommendations available</div>';
         return;

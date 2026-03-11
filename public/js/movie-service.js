@@ -20,6 +20,7 @@ const MovieService = (() => {
     };
 
     let cachedMovies = null;
+    let cachedDiscoverySections = null;
     const apiCache = {
         search: new Map(),
         genre: new Map(),
@@ -169,15 +170,33 @@ const MovieService = (() => {
         return movie;
     }
 
-    async function loadMovies() {
-        if (Array.isArray(cachedMovies)) {
+    async function loadMoviePage(page = 1, pageSize = 24) {
+        const payload = await fetchApiJson(`/movies?page=${page}&page_size=${pageSize}`);
+        return {
+            page: Number(payload.page || page),
+            pageSize: Number(payload.page_size || pageSize),
+            hasMore: Boolean(payload.has_more),
+            nextPage: payload.next_page ? Number(payload.next_page) : null,
+            movies: (Array.isArray(payload.movies) ? payload.movies : []).map(normalizeMovie)
+        };
+    }
+
+    async function loadMovies(forceRefresh = false) {
+        if (Array.isArray(cachedMovies) && !forceRefresh) {
             return cachedMovies;
         }
 
         try {
-            const payload = await fetchApiJson('/movies');
-            const rows = Array.isArray(payload.movies) ? payload.movies : [];
-            cachedMovies = rows.map(normalizeMovie);
+            const collected = [];
+            let page = 1;
+            let hasMore = true;
+            while (hasMore && page <= 10) {
+                const result = await loadMoviePage(page, 50);
+                collected.push(...result.movies);
+                hasMore = result.hasMore;
+                page = result.nextPage || page + 1;
+            }
+            cachedMovies = forceRefresh ? collected : collected;
             return cachedMovies;
         } catch (apiError) {
             const response = await fetch(FALLBACK_MOVIES_URL);
@@ -189,12 +208,18 @@ const MovieService = (() => {
         }
     }
 
-    async function getMovieById(movieId) {
-        const movies = await loadMovies();
-        return movies.find(movie => Number(movie.id) === Number(movieId)) || null;
+    async function getMovieById(movieId, user = null) {
+        try {
+            const userId = encodeURIComponent(getUserId(user));
+            const payload = await fetchApiJson(`/movie/${movieId}?user_id=${userId}`);
+            return normalizeMovie(payload);
+        } catch (error) {
+            const movies = await loadMovies();
+            return movies.find(movie => Number(movie.id) === Number(movieId)) || null;
+        }
     }
 
-    async function searchMovies(query, limit = 25) {
+    async function searchMovies(query, limit = 25, user = null) {
         const term = String(query || '').trim();
         if (!term) return loadMovies();
 
@@ -202,7 +227,7 @@ const MovieService = (() => {
         if (apiCache.search.has(cacheKey)) return apiCache.search.get(cacheKey);
 
         try {
-            const payload = await fetchApiJson(`/search?title=${encodeURIComponent(term)}&limit=${limit}`);
+            const payload = await fetchApiJson(`/search?title=${encodeURIComponent(term)}&limit=${limit}&user_id=${encodeURIComponent(getUserId(user))}`);
             const movies = (Array.isArray(payload.movies) ? payload.movies : []).map(normalizeMovie);
             apiCache.search.set(cacheKey, movies);
             return movies;
@@ -236,23 +261,87 @@ const MovieService = (() => {
         }
     }
 
-    async function getSimilarMovies(movieTitle, limit = 10) {
-        const title = String(movieTitle || '').trim();
-        if (!title) return [];
-
-        const cacheKey = `${title.toLowerCase()}::${limit}`;
+    async function getSimilarMovies(movieRef, limit = 10, user = null) {
+        const cacheKey = `${String(movieRef).toLowerCase()}::${limit}::${getUserId(user)}`;
         if (apiCache.recommend.has(cacheKey)) return apiCache.recommend.get(cacheKey);
 
         try {
-            const payload = await fetchApiJson(`/recommend?movie=${encodeURIComponent(title)}&limit=${limit}`);
+            let path = '';
+            if (/^\d+$/.test(String(movieRef || ''))) {
+                path = `/recommend/${movieRef}?limit=${limit}&user_id=${encodeURIComponent(getUserId(user))}`;
+            } else {
+                path = `/recommend?movie=${encodeURIComponent(String(movieRef || '').trim())}&limit=${limit}&user_id=${encodeURIComponent(getUserId(user))}`;
+            }
+
+            const payload = await fetchApiJson(path);
             const movies = (Array.isArray(payload.movies) ? payload.movies : []).map(normalizeMovie);
             apiCache.recommend.set(cacheKey, movies);
             return movies;
         } catch (error) {
             const movies = await loadMovies();
-            const sourceMovie = movies.find(movie => movie.title.toLowerCase() === title.toLowerCase());
+            const sourceMovie = /^\d+$/.test(String(movieRef || ''))
+                ? movies.find(movie => Number(movie.id) === Number(movieRef))
+                : movies.find(movie => movie.title.toLowerCase() === String(movieRef || '').toLowerCase());
             return sourceMovie ? getRecommendationsForMovie(movies, sourceMovie, limit) : [];
         }
+    }
+
+    async function getDiscoverySections(user = null, limit = 12, forceRefresh = false) {
+        if (cachedDiscoverySections && !forceRefresh) return cachedDiscoverySections;
+        const payload = await fetchApiJson(`/discovery?user_id=${encodeURIComponent(getUserId(user))}&limit=${limit}`);
+        const rows = payload.rows || {};
+        const normalizedRows = {};
+
+        Object.keys(rows).forEach(key => {
+            normalizedRows[key] = (Array.isArray(rows[key]) ? rows[key] : []).map(item => normalizeMovie(item.movie || item));
+        });
+
+        cachedDiscoverySections = {
+            tonightPick: payload.tonight_pick ? {
+                ...payload.tonight_pick,
+                movie: normalizeMovie(payload.tonight_pick.movie || payload.tonight_pick)
+            } : null,
+            rows: normalizedRows
+        };
+        return cachedDiscoverySections;
+    }
+
+    async function getTrending(window = 'day', limit = 20) {
+        const payload = await fetchApiJson(`/trending?window=${encodeURIComponent(window)}&limit=${limit}`);
+        return (Array.isArray(payload.movies) ? payload.movies : []).map(normalizeMovie);
+    }
+
+    async function getTopRated(limit = 20) {
+        const payload = await fetchApiJson(`/top-rated?limit=${limit}`);
+        return (Array.isArray(payload.movies) ? payload.movies : []).map(normalizeMovie);
+    }
+
+    async function getNewReleases(limit = 20) {
+        const payload = await fetchApiJson(`/new-releases?limit=${limit}`);
+        return (Array.isArray(payload.movies) ? payload.movies : []).map(normalizeMovie);
+    }
+
+    async function getPopular(limit = 20) {
+        const payload = await fetchApiJson(`/popular?limit=${limit}`);
+        return (Array.isArray(payload.movies) ? payload.movies : []).map(normalizeMovie);
+    }
+
+    async function getRandomMovie(options = {}) {
+        const params = new URLSearchParams();
+        if (options.genre) params.set('genre', options.genre);
+        if (options.mood) params.set('mood', options.mood);
+        const payload = await fetchApiJson(`/random?${params.toString()}`);
+        return normalizeMovie(payload);
+    }
+
+    async function getTonightPick(user = null, mood = '') {
+        const params = new URLSearchParams({ user_id: getUserId(user) });
+        if (mood) params.set('mood', mood);
+        const payload = await fetchApiJson(`/tonight?${params.toString()}`);
+        return {
+            ...payload,
+            movie: normalizeMovie(payload.movie || payload)
+        };
     }
 
     function sortMovies(movies, sortBy) {
@@ -851,10 +940,18 @@ const MovieService = (() => {
 
     return {
         loadMovies,
+        loadMoviePage,
         getMovieById,
         searchMovies,
         getGenreRecommendations,
         getSimilarMovies,
+        getDiscoverySections,
+        getTrending,
+        getTopRated,
+        getNewReleases,
+        getPopular,
+        getRandomMovie,
+        getTonightPick,
         genreIdToName,
         sortMovies,
         filterMovies,
