@@ -9,7 +9,7 @@ CineVerse AI is a Netflix-style movie discovery app with a static frontend and a
 - Pandas
 - scikit-learn
 - Redis with in-memory fallback
-- TMDB API for metadata enrichment
+- TMDB API or OMDb API for metadata enrichment
 - Uvicorn
 - Vercel
 
@@ -33,9 +33,10 @@ backend/
 ## Environment variables
 
 - `TMDB_API_KEY` or `TMDB_BEARER_TOKEN`
+- `OMDB_API_KEY`
 - `REDIS_URL` for persistent cache and user-state storage
 
-If TMDB is not configured, the backend still works with the local dataset and placeholder assets.
+If TMDB is not configured, the backend can fall back to OMDb for posters, plot, cast, genres, rating, runtime, and director metadata. If neither provider is configured, it still works with the local dataset and placeholder assets.
 
 ## Local run
 
@@ -70,6 +71,6 @@ If TMDB is not configured, the backend still works with the local dataset and pl
 ## Notes
 
 - Movie metadata is normalized into a common model with poster, backdrop, trailer, runtime, rating, cast, director, and popularity score.
-- Missing metadata is enriched from TMDB when credentials are available.
+- Missing metadata is enriched from TMDB first, then OMDb when available.
 - Recommendation scoring combines TF-IDF similarity, genre overlap, actor overlap, director overlap, clustering, and user taste signals.
 - The homepage JS now supports backend-driven discovery rows and paginated browse loading.

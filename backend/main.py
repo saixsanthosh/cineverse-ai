@@ -45,6 +45,7 @@ def create_app() -> FastAPI:
             "status": "ok",
             "movies_indexed": movie_service.movie_count,
             "tmdb_enabled": movie_service.tmdb.enabled,
+            "omdb_enabled": movie_service.omdb.enabled,
             "redis_configured": bool(movie_service.cache.redis_url),
         }
 

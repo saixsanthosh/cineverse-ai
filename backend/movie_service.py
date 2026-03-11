@@ -156,11 +156,105 @@ class TMDBMovieClient:
         }
 
 
+class OMDbMovieClient:
+    def __init__(self, cache: CacheStore) -> None:
+        self.api_key = os.getenv("OMDB_API_KEY", "").strip()
+        self.cache = cache
+        self.client = httpx.AsyncClient(
+            timeout=10.0,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "CineVerse-AI/1.0",
+            },
+        )
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.api_key)
+
+    async def _request_json(self, params: dict[str, Any]) -> dict[str, Any] | None:
+        if not self.enabled:
+            return None
+
+        request_params = {"apikey": self.api_key, **params}
+        cache_key = f"omdb:{hashlib.sha1(urlencode(sorted(request_params.items())).encode('utf-8')).hexdigest()}"
+        cached = await self.cache.get_json(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            response = await self.client.get("https://www.omdbapi.com/", params=request_params)
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPError:
+            return None
+
+        if str(payload.get("Response", "")).lower() != "true":
+            return None
+
+        await self.cache.set_json(cache_key, payload, ttl_seconds=60 * 60 * 12)
+        return payload
+
+    async def search_movie(self, title: str, release_year: int = 0) -> dict[str, Any] | None:
+        params: dict[str, Any] = {"s": title, "type": "movie"}
+        if release_year:
+            params["y"] = release_year
+        payload = await self._request_json(params)
+        results = payload.get("Search", []) if payload else []
+        return results[0] if results else None
+
+    async def get_movie_details(self, imdb_id: str) -> dict[str, Any] | None:
+        if not imdb_id:
+            return None
+        return await self._request_json({"i": imdb_id, "plot": "full"})
+
+    async def resolve_movie(self, title: str, release_year: int = 0) -> dict[str, Any] | None:
+        details = await self._request_json({"t": title, "plot": "full", **({"y": release_year} if release_year else {})})
+        if details is None:
+            search_result = await self.search_movie(title, release_year)
+            if not search_result:
+                return None
+            details = await self.get_movie_details(str(search_result.get("imdbID", "")))
+        if not details:
+            return None
+
+        poster_url = ""
+        poster_value = str(details.get("Poster", "")).strip()
+        if poster_value and poster_value.upper() != "N/A":
+            poster_url = poster_value
+
+        raw_runtime = str(details.get("Runtime", "")).strip()
+        runtime = safe_int(raw_runtime.split(" ", 1)[0], 0)
+
+        raw_rating = str(details.get("imdbRating", "")).strip()
+        rating = 0.0 if not raw_rating or raw_rating.upper() == "N/A" else safe_float(raw_rating, 0.0)
+        resolved_year = safe_int(str(details.get("Year", "")).split("–", 1)[0].split("-", 1)[0], release_year)
+        genres = [item.strip() for item in str(details.get("Genre", "")).split(",") if item.strip()]
+        cast = [item.strip() for item in str(details.get("Actors", "")).split(",") if item.strip()]
+        director = "" if str(details.get("Director", "")).strip().upper() == "N/A" else str(details.get("Director", "")).strip()
+        overview = "" if str(details.get("Plot", "")).strip().upper() == "N/A" else str(details.get("Plot", "")).strip()
+
+        return {
+            "overview": overview,
+            "release_year": resolved_year,
+            "runtime": runtime,
+            "rating": rating,
+            "popularity_score": infer_popularity_score(rating, resolved_year, "|".join(genres)),
+            "poster_url": poster_url,
+            "backdrop_url": "",
+            "trailer_url": "",
+            "cast": unique_list(cast[:8]),
+            "director": director,
+            "genres": unique_list(genres),
+        }
+
+
 class MovieService:
     def __init__(self, dataset_path: Path | str = DATASET_PATH, cache: CacheStore | None = None) -> None:
         self.dataset_path = Path(dataset_path)
         self.cache = cache or get_cache()
         self.tmdb = TMDBMovieClient(self.cache)
+        self.omdb = OMDbMovieClient(self.cache)
         self._lock = asyncio.Lock()
         self._data_version = 1
         self._frame = self._load_dataset()
@@ -313,28 +407,36 @@ class MovieService:
             if row is None:
                 return None
 
-            if row.get("metadata_status") == "complete" or not self.tmdb.enabled:
+            if row.get("metadata_status") == "complete" or not (self.tmdb.enabled or self.omdb.enabled):
                 return self._serialize_movie(row)
 
-            tmdb_payload = await self.tmdb.resolve_movie(
-                str(row.get("title", "")),
-                safe_int(row.get("release_year"), 0),
-                safe_int(row.get("tmdb_id"), 0),
-            )
-            if tmdb_payload:
+            provider_payload: dict[str, Any] | None = None
+            if self.tmdb.enabled:
+                provider_payload = await self.tmdb.resolve_movie(
+                    str(row.get("title", "")),
+                    safe_int(row.get("release_year"), 0),
+                    safe_int(row.get("tmdb_id"), 0),
+                )
+            if provider_payload is None and self.omdb.enabled:
+                provider_payload = await self.omdb.resolve_movie(
+                    str(row.get("title", "")),
+                    safe_int(row.get("release_year"), 0),
+                )
+
+            if provider_payload:
                 updates = {
-                    "tmdb_id": tmdb_payload.get("tmdb_id", safe_int(row.get("tmdb_id"), 0)),
-                    "overview": tmdb_payload.get("overview") or row.get("overview", ""),
-                    "release_year": tmdb_payload.get("release_year") or safe_int(row.get("release_year"), 0),
-                    "runtime": tmdb_payload.get("runtime") or safe_int(row.get("runtime"), 0),
-                    "rating": tmdb_payload.get("rating") or safe_float(row.get("rating"), 0.0),
-                    "popularity_score": tmdb_payload.get("popularity_score") or safe_float(row.get("popularity_score"), 0.0),
-                    "poster_url": tmdb_payload.get("poster_url") or row.get("poster_url", ""),
-                    "backdrop_url": tmdb_payload.get("backdrop_url") or row.get("backdrop_url", ""),
-                    "trailer_url": tmdb_payload.get("trailer_url") or row.get("trailer_url", ""),
-                    "cast": "|".join(tmdb_payload.get("cast") or split_pipe_separated(row.get("cast"))),
-                    "director": tmdb_payload.get("director") or row.get("director", ""),
-                    "genres": "|".join(tmdb_payload.get("genres") or split_pipe_separated(row.get("genres"))),
+                    "tmdb_id": provider_payload.get("tmdb_id", safe_int(row.get("tmdb_id"), 0)),
+                    "overview": provider_payload.get("overview") or row.get("overview", ""),
+                    "release_year": provider_payload.get("release_year") or safe_int(row.get("release_year"), 0),
+                    "runtime": provider_payload.get("runtime") or safe_int(row.get("runtime"), 0),
+                    "rating": provider_payload.get("rating") or safe_float(row.get("rating"), 0.0),
+                    "popularity_score": provider_payload.get("popularity_score") or safe_float(row.get("popularity_score"), 0.0),
+                    "poster_url": provider_payload.get("poster_url") or row.get("poster_url", ""),
+                    "backdrop_url": provider_payload.get("backdrop_url") or row.get("backdrop_url", ""),
+                    "trailer_url": provider_payload.get("trailer_url") or row.get("trailer_url", ""),
+                    "cast": "|".join(provider_payload.get("cast") or split_pipe_separated(row.get("cast"))),
+                    "director": provider_payload.get("director") or row.get("director", ""),
+                    "genres": "|".join(provider_payload.get("genres") or split_pipe_separated(row.get("genres"))),
                     "metadata_status": "complete",
                 }
                 self._update_movie(movie_id, updates)
