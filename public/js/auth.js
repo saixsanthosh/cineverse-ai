@@ -120,18 +120,27 @@ class AuthenticationService {
 
     getCurrentUser() {
         const sessionData = sessionStorage.getItem('currentSession');
-        if (!sessionData) return null;
+        if (!sessionData) {
+            const guestUser = this.createGuestUser();
+            this.createSession(guestUser);
+            return guestUser;
+        }
 
         try {
             const session = JSON.parse(sessionData);
             if (session.isGuest && session.guestUser) {
                 return session.guestUser;
             }
-            return this.storage.getUserById(session.userId);
+            const savedUser = this.storage.getUserById(session.userId);
+            if (savedUser) return savedUser;
         } catch (e) {
             console.error('Error getting current user:', e);
-            return null;
         }
+
+        this.destroySession();
+        const guestUser = this.createGuestUser();
+        this.createSession(guestUser);
+        return guestUser;
     }
 
     isAuthenticated() {

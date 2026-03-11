@@ -1,7 +1,7 @@
 {
   "name": "CineVerse",
   "short_name": "CineVerse",
-  "start_url": "./login.html",
+  "start_url": "./home.html",
   "display": "standalone",
   "background_color": "#0a0e27",
   "theme_color": "#0a0e27"

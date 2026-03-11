@@ -36,7 +36,7 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def root() -> RedirectResponse:
-        return RedirectResponse(url="/index.html", status_code=307)
+        return RedirectResponse(url="/home.html", status_code=307)
 
     @app.get("/api/health")
     async def health() -> dict[str, Any]:
