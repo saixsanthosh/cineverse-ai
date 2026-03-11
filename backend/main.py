@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .movie_service import get_movie_service
@@ -16,6 +18,7 @@ class WatchlistMutation(BaseModel):
 
 
 def create_app() -> FastAPI:
+    public_dir = Path(__file__).resolve().parent.parent / "public"
     app = FastAPI(
         title="CineVerse AI API",
         description="Netflix-style movie discovery backend with search, metadata enrichment, recommendations, and discovery sections.",
@@ -265,6 +268,9 @@ def create_app() -> FastAPI:
         movie_service = get_movie_service()
         movies = await movie_service.remove_from_watchlist(user_id, movie_id)
         return {"user_id": user_id, "count": len(movies), "movies": movies}
+
+    if public_dir.exists():
+        app.mount("/", StaticFiles(directory=public_dir, html=True), name="public")
 
     return app
 
