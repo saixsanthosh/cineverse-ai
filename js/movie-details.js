@@ -109,6 +109,14 @@ function ensureAdvancedBlocks() {
 }
 
 function wireTrailer(movie, refs) {
+    if (!movie.trailer_link) {
+        refs.watchTrailerBtn.disabled = true;
+        refs.watchTrailerBtn.textContent = 'Trailer Unavailable';
+        refs.watchTrailerBtn.style.opacity = '0.6';
+        refs.watchTrailerBtn.style.cursor = 'not-allowed';
+        return;
+    }
+
     refs.watchTrailerBtn.addEventListener('click', () => {
         refs.trailerFrame.src = toEmbedUrl(movie.trailer_link);
         refs.trailerModal.style.display = 'flex';

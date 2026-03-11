@@ -323,7 +323,7 @@ class MovieService:
             and row.get("director")
             and safe_int(row.get("runtime"), 0) > 0
             and row.get("poster_url")
-            and row.get("trailer_url")
+            and (row.get("trailer_url") or not self.tmdb.enabled)
             else "needs_enrichment",
             axis=1,
         )
