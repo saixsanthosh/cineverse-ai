@@ -34,6 +34,19 @@ from .utils.data_cleaning import (
 )
 
 DATASET_PATH = Path(__file__).resolve().parent / "dataset" / "movies.csv"
+EXTERNAL_OMDB_ID_OFFSET = 2_000_000_000
+
+
+def external_movie_id_for_imdb(imdb_id: str) -> int:
+    digits = "".join(character for character in str(imdb_id or "") if character.isdigit())
+    return EXTERNAL_OMDB_ID_OFFSET + safe_int(digits, 0)
+
+
+def imdb_id_from_external_movie_id(movie_id: int) -> str:
+    numeric_id = safe_int(movie_id, 0)
+    if numeric_id < EXTERNAL_OMDB_ID_OFFSET:
+        return ""
+    return f"tt{numeric_id - EXTERNAL_OMDB_ID_OFFSET:07d}"
 
 
 @dataclass(slots=True)
@@ -57,13 +70,6 @@ class TMDBMovieClient:
         self.api_key = os.getenv("TMDB_API_KEY", "").strip()
         self.bearer_token = os.getenv("TMDB_BEARER_TOKEN", "").strip()
         self.cache = cache
-        self.client = httpx.AsyncClient(
-            timeout=10.0,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "CineVerse-AI/1.0",
-            },
-        )
 
     @property
     def enabled(self) -> bool:
@@ -87,9 +93,16 @@ class TMDBMovieClient:
             request_params["api_key"] = self.api_key
 
         try:
-            response = await self.client.get(f"https://api.themoviedb.org/3{path}", params=request_params, headers=headers)
-            response.raise_for_status()
-            payload = response.json()
+            async with httpx.AsyncClient(
+                timeout=10.0,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "CineVerse-AI/1.0",
+                },
+            ) as client:
+                response = await client.get(f"https://api.themoviedb.org/3{path}", params=request_params, headers=headers)
+                response.raise_for_status()
+                payload = response.json()
         except httpx.HTTPError:
             return None
 
@@ -160,13 +173,6 @@ class OMDbMovieClient:
     def __init__(self, cache: CacheStore) -> None:
         self.api_key = os.getenv("OMDB_API_KEY", "").strip()
         self.cache = cache
-        self.client = httpx.AsyncClient(
-            timeout=10.0,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "CineVerse-AI/1.0",
-            },
-        )
 
     @property
     def enabled(self) -> bool:
@@ -183,9 +189,16 @@ class OMDbMovieClient:
             return cached
 
         try:
-            response = await self.client.get("https://www.omdbapi.com/", params=request_params)
-            response.raise_for_status()
-            payload = response.json()
+            async with httpx.AsyncClient(
+                timeout=10.0,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "CineVerse-AI/1.0",
+                },
+            ) as client:
+                response = await client.get("https://www.omdbapi.com/", params=request_params)
+                response.raise_for_status()
+                payload = response.json()
         except httpx.HTTPError:
             return None
 
@@ -202,6 +215,10 @@ class OMDbMovieClient:
         payload = await self._request_json(params)
         results = payload.get("Search", []) if payload else []
         return results[0] if results else None
+
+    async def search_movies(self, title: str, page: int = 1) -> list[dict[str, Any]]:
+        payload = await self._request_json({"s": title, "type": "movie", "page": max(1, page)})
+        return payload.get("Search", []) if payload else []
 
     async def get_movie_details(self, imdb_id: str) -> dict[str, Any] | None:
         if not imdb_id:
@@ -260,6 +277,11 @@ class MovieService:
         self._frame = self._load_dataset()
         self._id_to_index = {int(row.movie_id): int(index) for index, row in self._frame.iterrows()}
 
+    def _next_movie_id(self) -> int:
+        if self._frame.empty:
+            return 1
+        return safe_int(self._frame["movie_id"].max(), 0) + 1
+
     def _load_dataset(self) -> pd.DataFrame:
         frame = pd.read_csv(self.dataset_path)
 
@@ -288,6 +310,7 @@ class MovieService:
             "language",
             "tags",
             "tmdb_id",
+            "imdb_id",
         ]:
             if column not in frame.columns:
                 frame[column] = ""
@@ -349,6 +372,18 @@ class MovieService:
             return None
         return matches.iloc[0]
 
+    def _row_for_title_year(self, title: str, release_year: int) -> pd.Series | None:
+        normalized_title = normalize_lookup(title)
+        matches = self._frame[
+            (self._frame["normalized_title"] == normalized_title)
+            & (self._frame["release_year"] == safe_int(release_year, 0))
+        ]
+        if matches.empty:
+            matches = self._frame[self._frame["normalized_title"] == normalized_title]
+        if matches.empty:
+            return None
+        return matches.iloc[0]
+
     def _update_movie(self, movie_id: int, updates: dict[str, Any]) -> None:
         index = self._frame.index[self._frame["movie_id"] == int(movie_id)]
         if index.empty:
@@ -361,7 +396,161 @@ class MovieService:
         self._frame.at[row_index, "genre_id"] = genre_id_for(self._frame.at[row_index, "primary_genre"])
         self._frame.at[row_index, "moods"] = infer_moods(self._frame.at[row_index, "genres"])
         self._frame.at[row_index, "feature_text"] = build_feature_text(self._frame.loc[row_index].to_dict())
+        self._id_to_index = {int(row.movie_id): int(index) for index, row in self._frame.iterrows()}
         self._data_version += 1
+
+    def _append_movie(self, raw_movie: dict[str, Any]) -> pd.Series:
+        title = str(raw_movie.get("title", "")).strip()
+        genres = split_pipe_separated(raw_movie.get("genres"))
+        release_year = safe_int(raw_movie.get("release_year"), 0)
+        rating = safe_float(raw_movie.get("rating"), 0.0)
+        tags = split_pipe_separated(raw_movie.get("tags"))
+
+        row = {
+            "movie_id": safe_int(raw_movie.get("movie_id"), self._next_movie_id()),
+            "title": title,
+            "imdb_id": str(raw_movie.get("imdb_id", "")),
+            "genres": "|".join(genres),
+            "overview": str(raw_movie.get("overview", "")),
+            "cast": "|".join(split_pipe_separated(raw_movie.get("cast"))),
+            "director": str(raw_movie.get("director", "")),
+            "rating": rating,
+            "runtime": infer_runtime(safe_int(raw_movie.get("movie_id"), 0), raw_movie.get("runtime")),
+            "release_year": release_year,
+            "poster_url": str(raw_movie.get("poster_url", "")),
+            "backdrop_url": str(raw_movie.get("backdrop_url", "")) or fallback_backdrop_url(title),
+            "trailer_url": str(raw_movie.get("trailer_url", "")),
+            "popularity_score": safe_float(raw_movie.get("popularity_score"), 0.0)
+            or infer_popularity_score(rating, release_year, "|".join(tags)),
+            "keywords": "|".join(split_pipe_separated(raw_movie.get("keywords"))),
+            "language": str(raw_movie.get("language", "")),
+            "tags": "|".join(tags),
+            "tmdb_id": safe_int(raw_movie.get("tmdb_id"), 0),
+            "normalized_title": normalize_lookup(title),
+            "primary_genre": primary_genre("|".join(genres)),
+            "genre_id": genre_id_for(primary_genre("|".join(genres))),
+            "moods": infer_moods("|".join(genres)),
+            "feature_text": "",
+            "metadata_status": "complete" if title else "needs_enrichment",
+        }
+        row["feature_text"] = build_feature_text(row)
+
+        self._frame = pd.concat([self._frame, pd.DataFrame([row])], ignore_index=True)
+        self._id_to_index = {int(item.movie_id): int(index) for index, item in self._frame.iterrows()}
+        self._data_version += 1
+        return self._frame.iloc[-1]
+
+    def _external_tags(self, rating: float, release_year: int, awards: str) -> list[str]:
+        tags: list[str] = []
+        if rating >= 8.5:
+            tags.append("must-watch")
+        if rating >= 7.2:
+            tags.append("trending")
+        if release_year >= 2020:
+            tags.append("new-release")
+        if "oscar" in awards.lower() or "win" in awards.lower():
+            tags.append("critically-acclaimed")
+        return unique_list(tags)
+
+    def _external_keywords(self, genres: list[str], awards: str) -> list[str]:
+        keywords = [genre.lower().replace(" ", "-") for genre in genres[:3]]
+        if "oscar" in awards.lower():
+            keywords.append("award-winning")
+        return unique_list(keywords)
+
+    def _external_language_code(self, language_value: str) -> str:
+        first = split_pipe_separated(str(language_value).replace(",", "|"))
+        if not first:
+            return "en"
+        mapping = {
+            "english": "en",
+            "hindi": "hi",
+            "tamil": "ta",
+            "telugu": "te",
+            "kannada": "kn",
+            "malayalam": "ml",
+            "japanese": "ja",
+            "korean": "ko",
+            "spanish": "es",
+            "french": "fr",
+            "german": "de",
+        }
+        return mapping.get(first[0].strip().lower(), first[0][:2].lower())
+
+    def _build_external_movie_from_omdb(self, payload: dict[str, Any]) -> dict[str, Any]:
+        title = str(payload.get("Title", "")).strip()
+        raw_year = str(payload.get("Year", "")).strip()
+        release_year = safe_int(raw_year.split("–", 1)[0].split("-", 1)[0], 0)
+        genres = [item.strip() for item in str(payload.get("Genre", "")).split(",") if item.strip()]
+        cast = [item.strip() for item in str(payload.get("Actors", "")).split(",") if item.strip()]
+        rating = safe_float(0 if str(payload.get("imdbRating", "")).upper() == "N/A" else payload.get("imdbRating"), 0.0)
+        awards = str(payload.get("Awards", ""))
+        poster_url = "" if str(payload.get("Poster", "")).upper() == "N/A" else str(payload.get("Poster", ""))
+        runtime_text = str(payload.get("Runtime", ""))
+        runtime = safe_int(runtime_text.split(" ", 1)[0], 0)
+
+        return {
+            "title": title,
+            "movie_id": external_movie_id_for_imdb(str(payload.get("imdbID", ""))),
+            "imdb_id": str(payload.get("imdbID", "")),
+            "genres": genres,
+            "overview": "" if str(payload.get("Plot", "")).upper() == "N/A" else str(payload.get("Plot", "")),
+            "cast": cast[:5],
+            "director": "" if str(payload.get("Director", "")).upper() == "N/A" else str(payload.get("Director", "")),
+            "rating": rating,
+            "runtime": runtime,
+            "release_year": release_year,
+            "poster_url": poster_url,
+            "backdrop_url": fallback_backdrop_url(title),
+            "trailer_url": "",
+            "popularity_score": infer_popularity_score(rating, release_year, awards),
+            "keywords": self._external_keywords(genres, awards),
+            "language": self._external_language_code(str(payload.get("Language", ""))),
+            "tags": self._external_tags(rating, release_year, awards),
+            "tmdb_id": 0,
+        }
+
+    async def _import_omdb_movie(self, payload: dict[str, Any]) -> dict[str, Any] | None:
+        title = str(payload.get("Title", "")).strip()
+        raw_year = str(payload.get("Year", "")).strip()
+        release_year = safe_int(raw_year.split("–", 1)[0].split("-", 1)[0], 0)
+        existing = self._row_for_title_year(title, release_year)
+        if existing is not None:
+            return self._serialize_movie(existing)
+
+        movie = self._build_external_movie_from_omdb(payload)
+        appended = self._append_movie(movie)
+        return self._serialize_movie(appended)
+
+    async def _search_external_movies(self, title: str, limit: int) -> list[dict[str, Any]]:
+        if not self.omdb.enabled or limit <= 0:
+            return []
+
+        collected: list[dict[str, Any]] = []
+        seen_ids: set[int] = set()
+        max_pages = max(1, min(5, (limit + 9) // 10 + 1))
+
+        for page in range(1, max_pages + 1):
+            results = await self.omdb.search_movies(title, page=page)
+            if not results:
+                break
+
+            for result in results:
+                detail = await self.omdb.get_movie_details(str(result.get("imdbID", "")))
+                if not detail:
+                    continue
+                movie = await self._import_omdb_movie(detail)
+                if not movie:
+                    continue
+                movie_id = safe_int(movie.get("movie_id"), 0)
+                if movie_id in seen_ids:
+                    continue
+                seen_ids.add(movie_id)
+                collected.append(movie)
+                if len(collected) >= limit:
+                    return collected
+
+        return collected
 
     def _serialize_movie(self, row: pd.Series) -> dict[str, Any]:
         genres = split_pipe_separated(row.get("genres"))
@@ -371,6 +560,7 @@ class MovieService:
             "movie_id": safe_int(row.get("movie_id"), 0),
             "id": safe_int(row.get("movie_id"), 0),
             "title": str(row.get("title", "")),
+            "imdb_id": str(row.get("imdb_id", "")),
             "genres": genres,
             "genre": primary_genre(row.get("genres")),
             "genre_id": safe_int(row.get("genre_id"), 0),
@@ -405,7 +595,15 @@ class MovieService:
         async with self._lock:
             row = self._row_for_movie(movie_id)
             if row is None:
-                return None
+                external_imdb_id = imdb_id_from_external_movie_id(movie_id)
+                if external_imdb_id and self.omdb.enabled:
+                    detail = await self.omdb.get_movie_details(external_imdb_id)
+                    if detail:
+                        movie = await self._import_omdb_movie(detail)
+                        if movie:
+                            row = self._row_for_movie(movie.get("movie_id", movie_id))
+                if row is None:
+                    return None
 
             if row.get("metadata_status") == "complete" or not (self.tmdb.enabled or self.omdb.enabled):
                 return self._serialize_movie(row)
@@ -483,7 +681,7 @@ class MovieService:
             starts_bonus = 0.2 if candidate.startswith(normalized_query) else 0.0
             token_bonus = 0.1 if all(token in candidate for token in normalized_query.split()) else 0.0
             score = ratio + contains_bonus + starts_bonus + token_bonus
-            if score >= 0.38:
+            if score >= 0.38 and (contains_bonus > 0 or token_bonus > 0 or ratio >= 0.82):
                 scored_rows.append((score, row))
 
         scored_rows.sort(
@@ -496,6 +694,13 @@ class MovieService:
             reverse=True,
         )
         movies = [self._serialize_movie(row) for _, row in scored_rows[:limit]]
+
+        if len(movies) < limit and self.omdb.enabled:
+            external_movies = await self._search_external_movies(title, limit - len(movies))
+            existing_ids = {safe_int(movie.get("movie_id"), 0) for movie in movies}
+            movies.extend([movie for movie in external_movies if safe_int(movie.get("movie_id"), 0) not in existing_ids])
+            movies = movies[:limit]
+
         suggestions = unique_list(movie["title"] for movie in movies[:8])
 
         if user_id:
