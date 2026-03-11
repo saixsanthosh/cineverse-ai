@@ -1,0 +1,17 @@
+[project]
+name = "cineverse-ai"
+version = "0.1.0"
+description = "Netflix-style movie discovery platform with FastAPI and AI recommendations"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.116.0,<1.0.0",
+    "uvicorn>=0.35.0,<1.0.0",
+    "pandas>=2.3.0,<3.0.0",
+    "scikit-learn>=1.7.0,<2.0.0",
+    "httpx>=0.28.0,<1.0.0",
+    "redis>=6.0.0,<7.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
